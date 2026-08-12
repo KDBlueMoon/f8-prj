@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
+from app.db.models.company import Company
 from app.db.models.enums import ExperienceLevel, Gender, JobStatus, JobType, SalaryType
 
 
@@ -81,6 +82,9 @@ class Job(Base, UUIDMixin, TimestampMixin):
     locations: Mapped[list["JobLocation"]] = relationship(
         back_populates="job", cascade="all, delete-orphan"
     )
+    # Một chiều: màn hình admin cần biết tin thuộc công ty nào, nhưng Company
+    # không cần danh sách job (luôn truy vấn kèm phân trang và bộ lọc).
+    company: Mapped[Company] = relationship()
 
 
 class JobLocation(Base, UUIDMixin, TimestampMixin):

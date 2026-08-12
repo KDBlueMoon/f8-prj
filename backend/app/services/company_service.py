@@ -14,6 +14,7 @@ from app.db.models.enums import CompanyStatus, VerificationTier
 from app.db.models.user import User
 from app.integrations import vietqr
 from app.schemas.company import CompanyAddressIn, CompanyUpdateIn
+from app.services import job_service
 
 MAX_ADDRESSES_PER_COMPANY = 10
 
@@ -182,6 +183,12 @@ def decide_company(
     if new_status == CompanyStatus.REJECTED:
         # Công ty bị từ chối thì không còn được coi là đã xác thực.
         company.verification_tier = VerificationTier.UNVERIFIED
+        # Và mọi tin đang đăng phải biến mất khỏi trang công khai ngay. Gỡ trong
+        # cùng transaction với việc đổi trạng thái công ty (DESIGN mục 4.3) —
+        # tách ra thì có khoảng thời gian công ty đã bị từ chối mà tin vẫn hiện.
+        job_service.take_down_published_jobs(
+            db, company, f"Hồ sơ công ty bị từ chối: {company.rejected_reason}"
+        )
 
     db.commit()
     db.refresh(company)

@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_admin
-from app.db.models.enums import CompanyStatus
+from app.db.models.enums import CompanyStatus, JobStatus
 from app.db.models.user import User
 from app.db.session import get_db
-from app.schemas.common import Page, PageMeta
+from app.schemas.common import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, build_page_meta
 from app.schemas.company import (
     AdminCompanyDecisionIn,
     AdminUserOut,
@@ -16,18 +16,15 @@ from app.schemas.company import (
     CompanyListItemOut,
     CompanyOut,
 )
-from app.services import company_service
+from app.schemas.job import (
+    AdminJobHotIn,
+    AdminJobListItemOut,
+    AdminJobTakedownIn,
+    JobOut,
+)
+from app.services import company_service, job_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 50
-
-
-def _page_meta(page: int, page_size: int, total: int) -> PageMeta:
-    # Chia lên: 21 bản ghi với page_size 20 là 2 trang.
-    total_pages = (total + page_size - 1) // page_size
-    return PageMeta(page=page, page_size=page_size, total=total, total_pages=total_pages)
 
 
 @router.get("/companies", response_model=Page[CompanyListItemOut])
@@ -44,7 +41,7 @@ def list_companies(
     )
     return Page(
         items=[CompanyListItemOut.model_validate(company) for company in companies],
-        meta=_page_meta(page, page_size, total),
+        meta=build_page_meta(page, page_size, total),
     )
 
 
@@ -92,6 +89,70 @@ def set_company_verification(
     return CompanyOut.model_validate(updated)
 
 
+# ─────────────────────────── Giám sát tin tuyển dụng ───────────────────────────
+
+
+@router.get("/jobs", response_model=Page[AdminJobListItemOut])
+def list_jobs(
+    status_filter: JobStatus | None = Query(default=None, alias="status"),
+    q: str | None = Query(default=None, max_length=100),
+    company_id: uuid.UUID | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> Page[AdminJobListItemOut]:
+    """Toàn bộ tin của mọi công ty.
+
+    Tin không qua bước duyệt nên đây là chốt giám sát duy nhất: admin thấy hết
+    và gỡ được tin vi phạm (DESIGN mục 11.2).
+    """
+    jobs, total = job_service.list_jobs(
+        db,
+        job_status=status_filter,
+        keyword=q,
+        company_id=company_id,
+        page=page,
+        page_size=page_size,
+    )
+    return Page(
+        items=[AdminJobListItemOut.model_validate(job) for job in jobs],
+        meta=build_page_meta(page, page_size, total),
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=JobOut)
+def get_job(
+    job_id: uuid.UUID,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> JobOut:
+    return JobOut.model_validate(job_service.get_job_by_id(db, job_id))
+
+
+@router.patch("/jobs/{job_id}/takedown", response_model=JobOut)
+def take_down_job(
+    job_id: uuid.UUID,
+    payload: AdminJobTakedownIn,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> JobOut:
+    """Gỡ tin vi phạm. Lý do là bắt buộc để nhà tuyển dụng biết cần sửa gì."""
+    job = job_service.get_job_by_id(db, job_id)
+    return JobOut.model_validate(job_service.take_down_job(db, job, payload.takedown_reason))
+
+
+@router.patch("/jobs/{job_id}/hot", response_model=JobOut)
+def set_job_hot(
+    job_id: uuid.UUID,
+    payload: AdminJobHotIn,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> JobOut:
+    job = job_service.get_job_by_id(db, job_id)
+    return JobOut.model_validate(job_service.set_job_hot(db, job, payload.is_hot))
+
+
 @router.get("/users", response_model=Page[AdminUserOut])
 def list_users(
     q: str | None = Query(default=None, max_length=100),
@@ -103,7 +164,7 @@ def list_users(
     users, total = company_service.list_users(db, keyword=q, page=page, page_size=page_size)
     return Page(
         items=[AdminUserOut.model_validate(user) for user in users],
-        meta=_page_meta(page, page_size, total),
+        meta=build_page_meta(page, page_size, total),
     )
 
 

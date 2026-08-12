@@ -7,6 +7,7 @@ lại nhiều lần vẫn cho kết quả như nhau.
 
 import uuid
 from collections.abc import Callable, Generator, Iterator
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -176,6 +177,57 @@ def admin_token(
 
     response = client.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD})
     return response.json()["access_token"]
+
+
+@pytest.fixture
+def make_approved_employer(
+    client: TestClient, make_employer: Callable[..., dict], admin_token: str
+) -> Callable[..., dict]:
+    """Nhà tuyển dụng đã được admin duyệt — điều kiện cần để đăng tin."""
+
+    def make(company_name: str = "CÔNG TY TNHH ĐÃ DUYỆT") -> dict:
+        employer = make_employer(company_name)
+        client.patch(
+            f"/api/v1/admin/companies/{employer['company_id']}/status",
+            headers=auth_header(admin_token),
+            json={"status": "APPROVED"},
+        )
+        return employer
+
+    return make
+
+
+@pytest.fixture
+def any_category_id(client: TestClient) -> str:
+    """Id một ngành nghề có thật, lấy từ dữ liệu seed."""
+    groups = client.get("/api/v1/categories").json()
+    return groups[0]["categories"][0]["id"]
+
+
+@pytest.fixture
+def job_payload(any_category_id: str) -> Callable[..., dict]:
+    """Payload tạo tin hợp lệ; truyền keyword để ghi đè từng trường."""
+
+    def make(**overrides: object) -> dict:
+        payload = {
+            "title": "Lập trình viên Backend Python",
+            "category_id": any_category_id,
+            "job_type": "FULL_TIME",
+            "experience_level": "1_2",
+            "quantity": 2,
+            "salary_type": "RANGE",
+            "salary_min": 20_000_000,
+            "salary_max": 35_000_000,
+            "deadline": (datetime.now(UTC) + timedelta(days=30)).isoformat(),
+            "description_html": "<p>Mô tả công việc</p>",
+            "requirements_html": "<p>Yêu cầu ứng viên</p>",
+            "benefits_html": "<p>Quyền lợi</p>",
+            "locations": [{"city_id": 1, "address_detail": "47 Nguyễn Tuân"}],
+        }
+        payload.update(overrides)
+        return payload
+
+    return make
 
 
 @pytest.fixture
