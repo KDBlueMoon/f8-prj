@@ -2,6 +2,7 @@
 
 from app.db.base import Base
 from app.db.models.application import Application, Cv, SavedJob
+from app.db.models.auth import RefreshToken
 from app.db.models.catalog import Category, CategoryGroup, City
 from app.db.models.company import Company, CompanyAddress, CompanyMember
 from app.db.models.job import Job, JobLocation
@@ -19,6 +20,7 @@ __all__ = [
     "Cv",
     "Job",
     "JobLocation",
+    "RefreshToken",
     "SavedJob",
     "User",
 ]
