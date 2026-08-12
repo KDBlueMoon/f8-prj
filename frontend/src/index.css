@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+/* Màu thương hiệu dùng xuyên suốt app — khai báo một chỗ để không rải mã màu
+   khắp component. Tailwind v4 sinh sẵn các class bg-brand, text-brand... */
+@theme {
+  --color-brand: #00b14f;
+  --color-brand-dark: #009343;
+  --color-brand-light: #e7f9ef;
+}
