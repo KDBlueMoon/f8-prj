@@ -1,5 +1,22 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/apiClient'
-import type { Company, CompanyAddress, TaxCodeLookup } from '@/types/company'
+import { apiDelete, apiGet, apiPatch, apiPost, buildQuery } from '@/lib/apiClient'
+import type {
+  Company,
+  CompanyAddress,
+  Page,
+  PublicCompanyDetail,
+  PublicCompanyListItem,
+  TaxCodeLookup,
+} from '@/types/company'
+
+export const listPublicCompanies = (params: {
+  q?: string
+  group_id?: string
+  page?: number
+}): Promise<Page<PublicCompanyListItem>> =>
+  apiGet<Page<PublicCompanyListItem>>(`/companies${buildQuery({ ...params })}`)
+
+export const getPublicCompany = (slug: string): Promise<PublicCompanyDetail> =>
+  apiGet<PublicCompanyDetail>(`/companies/${encodeURIComponent(slug)}`)
 
 export const lookupTaxCode = (taxCode: string): Promise<TaxCodeLookup> =>
   apiGet<TaxCodeLookup>(`/companies/lookup-tax-code/${encodeURIComponent(taxCode)}`)

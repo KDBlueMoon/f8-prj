@@ -1,3 +1,6 @@
+import type { PublicCompany } from '@/types/company'
+import type { VerificationTier } from '@/types/auth'
+
 export type JobStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'EXPIRED' | 'TAKEN_DOWN'
 export type JobType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'FREELANCE'
 export type ExperienceLevel = 'NO_EXP' | 'UNDER_1' | '1_2' | '2_3' | '3_5' | 'OVER_5'
@@ -44,6 +47,60 @@ export interface Job extends JobListItem {
   requirements_html: string
   benefits_html: string
   updated_at: string
+}
+
+/** Company rút gọn nhúng trong thẻ tin ở trang công khai. */
+export interface JobCompanyBrief {
+  id: string
+  company_name: string
+  short_name: string | null
+  slug: string
+  logo_url: string | null
+  verification_tier: VerificationTier
+}
+
+/**
+ * Thẻ tin ở trang công khai.
+ *
+ * Không có `status`/`takedown_reason` như `JobListItem` của nhà tuyển dụng:
+ * backend chỉ trả tin đang đăng nên hai trường đó luôn cùng một giá trị.
+ */
+export interface PublicJobListItem {
+  id: string
+  title: string
+  slug: string
+  category_id: string
+  specialty: string | null
+  job_type: JobType
+  experience_level: ExperienceLevel
+  quantity: number
+  salary_type: SalaryType
+  salary_min: number | null
+  salary_max: number | null
+  currency: string
+  deadline: string
+  is_hot: boolean
+  view_count: number
+  created_at: string
+  locations: JobLocation[]
+  company: JobCompanyBrief
+}
+
+export interface PublicJobDetail extends Omit<PublicJobListItem, 'company'> {
+  gender: Gender
+  description_html: string
+  requirements_html: string
+  benefits_html: string
+  updated_at: string
+  company: PublicCompany
+}
+
+export type JobSort = 'newest' | 'salary_desc' | 'deadline'
+
+export const JOB_SORT_LABELS: Record<JobSort, string> = {
+  newest: 'Mới nhất',
+  salary_desc: 'Lương cao nhất',
+  deadline: 'Sắp hết hạn',
 }
 
 /** Payload tạo tin. Sửa tin dùng cùng shape nhưng mọi trường đều tuỳ chọn. */

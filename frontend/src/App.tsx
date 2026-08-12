@@ -9,8 +9,12 @@ import RegisterEmployerPage from '@/features/auth/RegisterEmployerPage'
 import { useSessionBootstrap } from '@/features/auth/useSessionBootstrap'
 import AdminCompaniesPage from '@/features/admin/AdminCompaniesPage'
 import AdminUsersPage from '@/features/admin/AdminUsersPage'
+import CompanyDetailPage from '@/features/companies/CompanyDetailPage'
+import CompanyListPage from '@/features/companies/CompanyListPage'
 import CompanyProfilePage from '@/features/employer/CompanyProfilePage'
 import JobListPage from '@/features/employer/JobListPage'
+import JobDetailPage from '@/features/jobs/JobDetailPage'
+import JobSearchPage from '@/features/jobs/JobSearchPage'
 import HomePage from '@/pages/HomePage'
 import {
   CandidateProfilePage,
@@ -56,6 +60,12 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+
+      {/* Trang công khai — khách chưa đăng nhập xem được (DESIGN mục 6.1). */}
+      <Route path="/viec-lam" element={<JobSearchPage />} />
+      <Route path="/viec-lam/:slug" element={<JobDetailPage />} />
+      <Route path="/cong-ty" element={<CompanyListPage />} />
+      <Route path="/cong-ty/:slug" element={<CompanyDetailPage />} />
 
       <Route
         path="/dang-nhap"

@@ -1,6 +1,38 @@
 import { apiDelete, apiGet, apiPatch, apiPost, buildQuery } from '@/lib/apiClient'
 import type { Page } from '@/types/company'
-import type { Job, JobInput, JobListItem, JobStatus } from '@/types/job'
+import type {
+  Job,
+  JobInput,
+  JobListItem,
+  JobSort,
+  JobStatus,
+  PublicJobDetail,
+  PublicJobListItem,
+} from '@/types/job'
+
+/** Bộ lọc của `GET /jobs`, khớp đúng tên tham số backend nhận. */
+export interface PublicJobFilters {
+  q?: string
+  category_id?: string
+  group_id?: string
+  city_id?: number
+  job_type?: string
+  experience_level?: string
+  salary_min?: number
+  salary_max?: number
+  is_hot?: boolean
+  sort?: JobSort
+  page?: number
+  page_size?: number
+}
+
+export const listPublicJobs = (filters: PublicJobFilters): Promise<Page<PublicJobListItem>> =>
+  apiGet<Page<PublicJobListItem>>(
+    `/jobs${buildQuery({ ...filters, is_hot: filters.is_hot ? 'true' : undefined })}`,
+  )
+
+export const getPublicJob = (slug: string): Promise<PublicJobDetail> =>
+  apiGet<PublicJobDetail>(`/jobs/${encodeURIComponent(slug)}`)
 
 export interface EmployerJobListParams {
   status?: JobStatus

@@ -1,4 +1,5 @@
 import type { CompanySize, CompanyStatus, UserRole, VerificationTier } from '@/types/auth'
+import type { PublicJobListItem } from '@/types/job'
 
 /** Chỉ 4 trường này VietQR trả về — phần còn lại nhà tuyển dụng nhập tay. */
 export interface TaxCodeLookup {
@@ -55,6 +56,46 @@ export interface CompanyListItem {
   verification_tier: VerificationTier
   tax_code_verified_at: string | null
   created_at: string
+}
+
+/**
+ * Công ty ở góc nhìn khách.
+ *
+ * Không có email, số điện thoại, người đại diện hay mã số thuế — backend cố ý
+ * không trả (xem `schemas/public.py::PublicCompanyOut`).
+ */
+export interface PublicCompany {
+  id: string
+  company_name: string
+  international_name: string | null
+  short_name: string | null
+  slug: string
+  headquarters_address: string
+  issued_date: string | null
+  website: string | null
+  logo_url: string | null
+  company_size: CompanySize
+  category_group_id: string | null
+  description_html: string | null
+  verification_tier: VerificationTier
+  created_at: string
+  addresses: CompanyAddress[]
+}
+
+export interface PublicCompanyDetail extends PublicCompany {
+  open_jobs: PublicJobListItem[]
+}
+
+export interface PublicCompanyListItem {
+  id: string
+  company_name: string
+  short_name: string | null
+  slug: string
+  logo_url: string | null
+  company_size: CompanySize
+  category_group_id: string | null
+  verification_tier: VerificationTier
+  open_job_count: number
 }
 
 export interface AdminUser {

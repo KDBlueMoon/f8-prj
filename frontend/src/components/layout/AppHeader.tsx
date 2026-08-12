@@ -10,6 +10,12 @@ const ROLE_LABELS = {
   ADMIN: 'Quản trị viên',
 } as const
 
+/** Luôn hiện, kể cả khi chưa đăng nhập — trang việc làm là công khai. */
+const PUBLIC_NAV = [
+  { to: '/viec-lam', label: 'Việc làm' },
+  { to: '/cong-ty', label: 'Công ty' },
+]
+
 const NAV_BY_ROLE: Record<UserRole, Array<{ to: string; label: string }>> = {
   CANDIDATE: [{ to: '/ung-vien/ho-so', label: 'Hồ sơ' }],
   EMPLOYER: [
@@ -40,21 +46,19 @@ export function AppHeader() {
           Top<span className="text-slate-800">CV</span>
         </Link>
 
-        {user && (
-          <nav className="hidden gap-5 text-sm font-medium md:flex">
-            {NAV_BY_ROLE[user.role].map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  isActive ? 'text-brand' : 'text-slate-600 hover:text-brand'
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        )}
+        <nav className="hidden gap-5 text-sm font-medium md:flex">
+          {[...PUBLIC_NAV, ...(user ? NAV_BY_ROLE[user.role] : [])].map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                isActive ? 'text-brand' : 'text-slate-600 hover:text-brand'
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
 
         <div className="ml-auto flex items-center gap-3">
           {status === 'authenticated' && user ? (
