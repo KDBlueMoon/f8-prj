@@ -53,6 +53,10 @@ class Company(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         default=VerificationTier.UNVERIFIED,
     )
+    # Thời điểm tên công ty được đối chiếu khớp với VietQR. NULL nghĩa là chưa
+    # đối chiếu được (VietQR không phản hồi lúc đăng ký) — admin cần soi kỹ hơn
+    # khi duyệt hồ sơ này.
+    tax_code_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Soft delete: giữ lịch sử ứng tuyển của ứng viên khi công ty bị xoá.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
