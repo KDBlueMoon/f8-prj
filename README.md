@@ -28,6 +28,8 @@ docker compose up -d
 | Địa chỉ | Nội dung |
 |---|---|
 | http://localhost:5173 | Frontend |
+| http://localhost:5173/dang-ky | Đăng ký ứng viên |
+| http://localhost:5173/dang-ky/nha-tuyen-dung | Đăng ký nhà tuyển dụng |
 | http://localhost:8000/api/v1/health | Health check |
 | http://localhost:8000/docs | Swagger UI (chỉ khi `APP_ENV != production`) |
 
@@ -49,6 +51,9 @@ docker compose down -v                # dừng và XOÁ SẠCH dữ liệu DB
 docker exec f8_backend pytest -q      # chạy test backend
 docker exec f8_frontend npm run build # type-check + build frontend
 
+# Tạo tài khoản quản trị viên (nhập mật khẩu khi được hỏi, không hiện ra màn hình)
+docker exec -it f8_backend python -m seeds.create_admin --email admin@congty.vn
+
 # Migration
 docker exec f8_backend alembic revision --autogenerate -m "mô tả"
 docker exec f8_backend alembic upgrade head
@@ -69,7 +74,7 @@ docker compose up -d --force-recreate --renew-anon-volumes frontend
 | Phase | Nội dung | Trạng thái |
 |---|---|---|
 | P0 | Docker Compose, schema DB, migration, seed 34 tỉnh/thành + ngành nghề | ✅ Xong |
-| P1 | Auth ứng viên + nhà tuyển dụng, RBAC | ⏳ |
+| P1 | Auth ứng viên + nhà tuyển dụng, RBAC, guard frontend | ✅ Xong |
 | P2 | Tích hợp VietQR, hồ sơ công ty, admin duyệt | ⏳ |
 | P3 | CRUD tin tuyển dụng + rich text | ⏳ |
 | P4 | Trang công khai: danh sách & chi tiết việc làm | ⏳ |

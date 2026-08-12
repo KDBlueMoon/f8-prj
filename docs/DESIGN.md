@@ -199,6 +199,18 @@ Quy ước chung: `id UUID PK`, `created_at`/`updated_at TIMESTAMPTZ NOT NULL DE
 
 > Không có cột `email_verified_at` — đã chốt **không gửi email**, nên không có luồng xác thực email.
 
+#### `refresh_tokens`
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `user_id` | FK → users, ON DELETE CASCADE | |
+| `jti` | varchar(36) UNIQUE NOT NULL | id của refresh token. **Chỉ lưu jti, không lưu chuỗi token** — rò rỉ bảng này cũng không đăng nhập thay người dùng được |
+| `expires_at` | timestamptz NOT NULL | |
+| `revoked_at` | timestamptz NULL | đặt khi logout hoặc khi token được luân chuyển |
+
+> Bảng này **không có trong bản thiết kế đầu**, thêm ở P1 để thực hiện được yêu cầu
+> "logout thu hồi refresh token". Nếu chỉ xoá cookie thì token bị đánh cắp vẫn dùng
+> được tới khi hết hạn.
+
 #### `cities`
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
@@ -320,7 +332,7 @@ Base: `/api/v1`. Auth: header `Authorization: Bearer <access_token>`.
 | POST | `/auth/register/candidate` | public | email, password, full_name, phone |
 | POST | `/auth/register/employer` | public | thông tin user + **toàn bộ thông tin công ty** (tạo `company` ở `PENDING`) |
 | POST | `/auth/login` | public | trả `access_token` (15 phút) trong body + `refresh_token` (7 ngày) trong **httpOnly cookie** |
-| POST | `/auth/refresh` | cookie | cấp access token mới |
+| POST | `/auth/refresh` | cookie | cấp access token mới **và luân chuyển refresh token** — token cũ bị thu hồi ngay, nên bản sao bị đánh cắp chỉ dùng được một lần |
 | POST | `/auth/logout` | auth | thu hồi refresh token |
 | GET | `/auth/me` | auth | user hiện tại + company kèm theo nếu là EMPLOYER |
 
