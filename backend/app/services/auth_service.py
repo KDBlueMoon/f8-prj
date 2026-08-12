@@ -22,6 +22,7 @@ from app.db.models.company import Company, CompanyMember
 from app.db.models.enums import CompanyStatus, MemberRole, UserRole
 from app.db.models.user import User
 from app.schemas.auth import CompanyRegistrationInfo
+from app.services import company_service
 from app.utils.slug import unique_slug
 
 _SLUG_SUFFIX_LENGTH = 6
@@ -78,6 +79,13 @@ def register_employer(
     _ensure_email_available(db, email)
     _ensure_tax_code_available(db, company_info.tax_code)
 
+    # Đối chiếu lại với VietQR ở phía server. Kiểm tra ở trình duyệt có thể bị
+    # bỏ qua bằng cách gọi thẳng API, nên tên công ty phải được xác thực ở đây
+    # thì mới chặn được việc khai tên khác với mã số thuế.
+    tax_code_verified_at = company_service.verify_tax_code_matches_name(
+        company_info.company_name, company_info.tax_code
+    )
+
     user = User(
         email=email,
         password_hash=hash_password(password),
@@ -105,6 +113,7 @@ def register_employer(
         company_size=company_info.company_size,
         category_group_id=company_info.category_group_id,
         status=CompanyStatus.PENDING,
+        tax_code_verified_at=tax_code_verified_at,
     )
     company.id = uuid.uuid4()
     company.slug = _company_slug(company.company_name, company.id)
