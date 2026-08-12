@@ -372,6 +372,26 @@ Response chuẩn cho mọi endpoint list:
 
 > **Ghi chú quan trọng về shape:** `data.json` nhúng **full object company** vào trong mỗi job. DB thì chuẩn hoá (job chỉ giữ `company_id`). API sẽ trả về đúng dạng lồng nhau như `data.json` để FE dùng thẳng — nhưng ở endpoint **list** chỉ trả `company` rút gọn (`id, company_name, short_name, logo_url, slug, verification_tier`) để giảm payload. Endpoint **detail** mới trả full.
 
+> **Chốt khi triển khai P4 — "full company" ở API công khai KHÔNG có thông tin liên hệ.**
+> `PublicCompanyOut` cố ý bỏ `email`, `phone_number`, `director`, `tax_code`,
+> `rejected_reason`, `status`. Phơi email và số điện thoại nhà tuyển dụng ra
+> internet là mời bot thu thập để gửi rác — ứng viên liên hệ qua chức năng ứng
+> tuyển chứ không cần địa chỉ liên hệ trực tiếp. `rejected_reason` là ghi chú nội
+> bộ giữa quản trị viên và nhà tuyển dụng. Đây là điểm khác `data.json` mẫu, có
+> test khẳng định các trường này không xuất hiện.
+>
+> **Ba chi tiết truy vấn đáng nhớ:**
+> - Điều kiện hiển thị công khai gom vào một chỗ (`_visible_to_public`): `PUBLISHED`
+>   **và** `deadline > now()` **và** công ty `APPROVED`. Lọc theo hạn ngay trong
+>   truy vấn chứ không chờ cron `EXPIRED` của P7 — cron chạy hằng ngày, không lọc
+>   thì tin quá hạn vẫn hiện tới lần chạy kế tiếp và ứng viên nộp vào chỗ đã đóng.
+> - Lọc theo `city_id` dùng `EXISTS` chứ không `JOIN`: một tin có nhiều địa điểm,
+>   join sẽ nhân bản dòng làm sai cả `total` lẫn phân trang.
+> - `sort=salary_desc` đẩy tin "thoả thuận" (cả hai cột lương NULL) xuống cuối
+>   bằng `NULLS LAST`; mặc định của Postgres khi sắp giảm dần là đưa NULL lên đầu.
+> - Lọc theo `salary_min`/`salary_max` loại tin "thoả thuận" ra khỏi kết quả —
+>   không có cách nào biết nó đạt mức người dùng nhập hay không. UI ghi rõ điều này.
+
 ### 5.4. Employer (`role=EMPLOYER`)
 | Method | Path | Mô tả |
 |---|---|---|

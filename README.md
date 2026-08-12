@@ -77,7 +77,7 @@ docker compose up -d --force-recreate --renew-anon-volumes frontend
 | P1 | Auth ứng viên + nhà tuyển dụng, RBAC, guard frontend | ✅ Xong |
 | P2 | Tích hợp VietQR, hồ sơ công ty, admin duyệt | ✅ Xong |
 | P3 | CRUD tin tuyển dụng + rich text | ✅ Xong |
-| P4 | Trang công khai: danh sách & chi tiết việc làm | ⏳ |
+| P4 | Trang công khai: danh sách & chi tiết việc làm | ✅ Xong |
 | P5 | Upload CV lên S3 + ứng tuyển | ⏳ |
 | P6 | Nhà tuyển dụng quản lý ứng viên | ⏳ |
 | P7 | Job đã lưu, cron hết hạn, SEO | ⏳ |
