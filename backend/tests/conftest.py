@@ -8,18 +8,24 @@ lại nhiều lần vẫn cho kết quả như nhau.
 import uuid
 from collections.abc import Callable, Generator, Iterator
 
+import httpx
 import pytest
+import respx
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.models.auth import RefreshToken
 from app.db.models.company import Company, CompanyMember
 from app.db.models.user import User
 from app.db.session import SessionLocal
+from app.integrations import vietqr
 from app.main import app
 
 PASSWORD = "MatKhau123"
+
+VIETQR_ROUTE = "vietqr_business"
 
 
 @pytest.fixture(scope="session")
@@ -37,6 +43,27 @@ def isolate_client_state(client: TestClient) -> None:
     """
     app.state.limiter.reset()
     client.cookies.clear()
+
+
+@pytest.fixture(autouse=True)
+def vietqr_mock() -> Generator[respx.MockRouter, None, None]:
+    """Chặn mọi lượt gọi VietQR trong test — test không được đụng mạng ngoài.
+
+    Mặc định giả lập VietQR không phản hồi, vì đó là trường hợp KHÔNG chặn đăng
+    ký: hồ sơ vẫn tạo được nhưng chưa có dấu đối chiếu mã số thuế. Test nào cần
+    kịch bản khác thì tự đổi route qua `vietqr_mock[VIETQR_ROUTE].mock(...)`.
+    """
+    # Cache nằm trong bộ nhớ tiến trình, không xoá thì kết quả của test này rơi
+    # sang test kia.
+    vietqr.clear_cache()
+
+    with respx.mock(base_url=settings.VIETQR_BASE_URL, assert_all_called=False) as router:
+        router.get(path__regex=r"/business/\d+", name=VIETQR_ROUTE).mock(
+            side_effect=httpx.ConnectTimeout("VietQR bị chặn trong test")
+        )
+        yield router
+
+    vietqr.clear_cache()
 
 
 @pytest.fixture
@@ -64,6 +91,91 @@ def unique_tax_code() -> Callable[[], str]:
         return str(uuid.uuid4().int)[:10]
 
     return make
+
+
+def auth_header(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def make_candidate(
+    client: TestClient, unique_email: Callable[[], str], cleanup_users: list[str]
+) -> Callable[[], str]:
+    """Tạo ứng viên mới và trả về access token."""
+
+    def make() -> str:
+        email = unique_email()
+        cleanup_users.append(email)
+        response = client.post(
+            "/api/v1/auth/register/candidate",
+            json={"email": email, "password": PASSWORD, "full_name": "Ứng viên Test"},
+        )
+        return response.json()["access_token"]
+
+    return make
+
+
+@pytest.fixture
+def make_employer(
+    client: TestClient,
+    unique_email: Callable[[], str],
+    unique_tax_code: Callable[[], str],
+    cleanup_users: list[str],
+) -> Callable[..., dict]:
+    """Tạo nhà tuyển dụng kèm công ty (PENDING) và trả về token + thông tin công ty."""
+
+    def make(company_name: str = "CÔNG TY TNHH KIỂM THỬ") -> dict:
+        email = unique_email()
+        cleanup_users.append(email)
+        response = client.post(
+            "/api/v1/auth/register/employer",
+            json={
+                "email": email,
+                "password": PASSWORD,
+                "full_name": "Nhà tuyển dụng Test",
+                "company": {
+                    "tax_code": unique_tax_code(),
+                    "company_name": company_name,
+                    "director": "Nguyễn Kiểm Thử",
+                    "headquarters_address": "1 Đường Thử Nghiệm, Hà Nội",
+                    "email": "hr@kiemthu.vn",
+                    "phone_number": "0901234567",
+                    "company_size": "10-24",
+                },
+            },
+        )
+        body = response.json()
+        return {
+            "email": email,
+            "token": body["access_token"],
+            "company_id": body["company"]["id"],
+        }
+
+    return make
+
+
+@pytest.fixture
+def admin_token(
+    client: TestClient, db: Session, unique_email: Callable[[], str], cleanup_users: list[str]
+) -> str:
+    """Tài khoản ADMIN tạo thẳng trong DB — không có endpoint đăng ký admin."""
+    from app.core.security import hash_password
+    from app.db.models.enums import UserRole
+
+    email = unique_email()
+    cleanup_users.append(email)
+    db.add(
+        User(
+            email=email,
+            password_hash=hash_password(PASSWORD),
+            role=UserRole.ADMIN,
+            full_name="Quản trị viên Test",
+        )
+    )
+    db.commit()
+
+    response = client.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD})
+    return response.json()["access_token"]
 
 
 @pytest.fixture
