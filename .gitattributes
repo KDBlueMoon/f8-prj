@@ -1,0 +1,14 @@
+# Chuẩn hoá xuống dòng về LF cho mọi file text.
+# Backend chạy trong container Linux — file checkout ra dạng CRLF sẽ làm
+# shell script và một số công cụ lỗi khó lần ra nguyên nhân.
+* text=auto eol=lf
+
+# File nhị phân: không đụng vào.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
