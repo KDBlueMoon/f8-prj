@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { CompanyStatus } from '@/types/auth'
 import { COMPANY_STATUS_LABELS } from '@/types/company'
+import { JOB_STATUS_LABELS, type JobStatus } from '@/types/job'
 
 type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
 
@@ -30,4 +31,16 @@ const STATUS_TONES: Record<CompanyStatus, Tone> = {
 
 export function CompanyStatusBadge({ status }: { status: CompanyStatus }) {
   return <Badge tone={STATUS_TONES[status]}>{COMPANY_STATUS_LABELS[status]}</Badge>
+}
+
+const JOB_STATUS_TONES: Record<JobStatus, Tone> = {
+  DRAFT: 'neutral',
+  PUBLISHED: 'success',
+  CLOSED: 'info',
+  EXPIRED: 'warning',
+  TAKEN_DOWN: 'danger',
+}
+
+export function JobStatusBadge({ status }: { status: JobStatus }) {
+  return <Badge tone={JOB_STATUS_TONES[status]}>{JOB_STATUS_LABELS[status]}</Badge>
 }

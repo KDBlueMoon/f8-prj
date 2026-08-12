@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import LoginPage from '@/features/auth/LoginPage'
@@ -9,6 +10,7 @@ import { useSessionBootstrap } from '@/features/auth/useSessionBootstrap'
 import AdminCompaniesPage from '@/features/admin/AdminCompaniesPage'
 import AdminUsersPage from '@/features/admin/AdminUsersPage'
 import CompanyProfilePage from '@/features/employer/CompanyProfilePage'
+import JobListPage from '@/features/employer/JobListPage'
 import HomePage from '@/pages/HomePage'
 import {
   CandidateProfilePage,
@@ -17,6 +19,12 @@ import {
   NotFoundPage,
 } from '@/pages/DashboardPages'
 import { useAuthStore } from '@/stores/authStore'
+
+/**
+ * Trang soạn tin kéo theo TipTap + ProseMirror (~500 kB) nhưng chỉ nhà tuyển
+ * dụng đang đăng tin mới dùng tới. Tách ra để ứng viên và khách không phải tải.
+ */
+const JobFormPage = lazy(() => import('@/features/employer/JobFormPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +35,10 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+function PageLoader() {
+  return <p className="p-8 text-center text-sm text-slate-500">Đang tải…</p>
+}
 
 /** Người đã đăng nhập thì không cần thấy trang đăng nhập/đăng ký nữa. */
 function GuestOnly({ children }: { children: ReactElement }) {
@@ -77,6 +89,24 @@ function AppRoutes() {
       <Route element={<ProtectedRoute allow={['EMPLOYER']} />}>
         <Route path="/ntd/tong-quan" element={<EmployerDashboardPage />} />
         <Route path="/ntd/cong-ty" element={<CompanyProfilePage />} />
+        <Route path="/ntd/tin-tuyen-dung" element={<JobListPage />} />
+        {/* "tao" đứng trước ":jobId" để không bị bắt nhầm thành id tin. */}
+        <Route
+          path="/ntd/tin-tuyen-dung/tao"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <JobFormPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/ntd/tin-tuyen-dung/:jobId"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <JobFormPage />
+            </Suspense>
+          }
+        />
       </Route>
 
       <Route element={<ProtectedRoute allow={['ADMIN']} />}>

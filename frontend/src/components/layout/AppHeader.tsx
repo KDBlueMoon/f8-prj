@@ -14,6 +14,7 @@ const NAV_BY_ROLE: Record<UserRole, Array<{ to: string; label: string }>> = {
   CANDIDATE: [{ to: '/ung-vien/ho-so', label: 'Hồ sơ' }],
   EMPLOYER: [
     { to: '/ntd/tong-quan', label: 'Tổng quan' },
+    { to: '/ntd/tin-tuyen-dung', label: 'Tin tuyển dụng' },
     { to: '/ntd/cong-ty', label: 'Hồ sơ công ty' },
   ],
   ADMIN: [

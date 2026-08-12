@@ -7,3 +7,46 @@
   --color-brand-dark: #009343;
   --color-brand-light: #e7f9ef;
 }
+
+/* Nội dung rich text (mô tả tin tuyển dụng) — dùng chung cho khung soạn thảo và
+   khung hiển thị để cái người dùng gõ giống hệt cái người xem thấy.
+   Cần khai báo tay vì preflight của Tailwind xoá sạch style mặc định của
+   ul/ol/h3; chỉ những thẻ nằm trong whitelist sanitize mới có mặt ở đây. */
+.rich-text {
+  color: var(--color-slate-700);
+  line-height: 1.65;
+}
+.rich-text h3 {
+  margin: 1em 0 0.4em;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+}
+.rich-text h3:first-child {
+  margin-top: 0;
+}
+.rich-text p {
+  margin: 0.5em 0;
+}
+.rich-text ul,
+.rich-text ol {
+  margin: 0.5em 0;
+  padding-left: 1.5rem;
+}
+.rich-text ul {
+  list-style: disc;
+}
+.rich-text ol {
+  list-style: decimal;
+}
+.rich-text li {
+  margin: 0.2em 0;
+}
+.rich-text a {
+  color: var(--color-brand-dark);
+  text-decoration: underline;
+}
+/* Gợi ý của TipTap khi khung soạn thảo còn trống. */
+.rich-text.ProseMirror {
+  min-height: 10rem;
+}
