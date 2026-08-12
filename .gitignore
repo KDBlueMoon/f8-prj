@@ -1,0 +1,36 @@
+# ─── Secrets: TUYỆT ĐỐI không commit ───
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── Python / backend ───
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# ─── Node / frontend ───
+node_modules/
+dist/
+.vite/
+*.local
+
+# ─── IDE / OS ───
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ─── File tạm ───
+storage/
+*.log
+
+# artefact cua tsc -b
+*.tsbuildinfo
