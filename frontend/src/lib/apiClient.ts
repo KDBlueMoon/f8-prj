@@ -93,6 +93,22 @@ export const apiGet = <T>(path: string): Promise<T> => apiRequest<T>(path)
 export const apiPost = <T>(path: string, body?: unknown, skipAuthRefresh = false): Promise<T> =>
   apiRequest<T>(path, { method: 'POST', body, skipAuthRefresh })
 
+export const apiPatch = <T>(path: string, body: unknown): Promise<T> =>
+  apiRequest<T>(path, { method: 'PATCH', body })
+
+export const apiDelete = <T>(path: string): Promise<T> =>
+  apiRequest<T>(path, { method: 'DELETE' })
+
+/** Ghép query string, bỏ qua tham số rỗng để URL không có `?q=&page=`. */
+export function buildQuery(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  }
+  const query = search.toString()
+  return query ? `?${query}` : ''
+}
+
 async function toApiError(response: Response): Promise<ApiError> {
   let body: unknown
   try {
