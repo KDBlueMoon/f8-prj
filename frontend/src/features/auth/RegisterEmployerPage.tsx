@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { SelectField, TextField } from '@/components/ui/FormField'
+import { TaxCodeLookupField } from '@/features/companies/TaxCodeLookupField'
 import { apiGet } from '@/lib/apiClient'
 import type { CategoryGroup } from '@/types/catalog'
 import { COMPANY_SIZE_LABELS, type CompanySize } from '@/types/auth'
@@ -26,6 +27,8 @@ export default function RegisterEmployerPage() {
     register,
     handleSubmit,
     setError,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<EmployerRegisterValues>({
     resolver: zodResolver(employerRegisterSchema),
@@ -124,16 +127,21 @@ export default function RegisterEmployerPage() {
           <h2 className="border-b border-slate-200 pb-2 font-bold text-brand">
             2. Thông tin doanh nghiệp
           </h2>
-          {/* P2 sẽ thêm nút "Tra cứu" gọi VietQR để tự điền 4 ô: tên công ty,
-              tên quốc tế, tên viết tắt và địa chỉ trụ sở. */}
-          <TextField
-            label="Mã số thuế"
-            required
-            inputMode="numeric"
-            placeholder="0108888888"
-            hint="10 hoặc 13 chữ số"
+          <TaxCodeLookupField
+            taxCode={watch('company.tax_code')}
             error={errors.company?.tax_code?.message}
-            {...register('company.tax_code')}
+            register={register('company.tax_code')}
+            onFound={(info) => {
+              // shouldValidate: xoá lỗi đỏ còn sót từ lần submit trước ngay khi
+              // giá trị mới được điền vào.
+              const options = { shouldValidate: true, shouldDirty: true }
+              setValue('company.company_name', info.company_name, options)
+              setValue('company.international_name', info.international_name ?? '', options)
+              setValue('company.short_name', info.short_name ?? '', options)
+              if (info.headquarters_address) {
+                setValue('company.headquarters_address', info.headquarters_address, options)
+              }
+            }}
           />
           <TextField
             label="Tên công ty"
