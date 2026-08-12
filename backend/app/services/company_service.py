@@ -10,7 +10,8 @@ from starlette import status
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.db.models.catalog import City
 from app.db.models.company import Company, CompanyAddress, CompanyMember
-from app.db.models.enums import CompanyStatus, VerificationTier
+from app.db.models.enums import CompanyStatus, JobStatus, VerificationTier
+from app.db.models.job import Job
 from app.db.models.user import User
 from app.integrations import vietqr
 from app.schemas.company import CompanyAddressIn, CompanyUpdateIn
@@ -240,6 +241,68 @@ def set_user_active(db: Session, *, admin: User, user_id: uuid.UUID, is_active: 
     db.commit()
     db.refresh(user)
     return user
+
+
+# ─────────────────────────── Trang công khai ───────────────────────────
+
+
+def list_public_companies(
+    db: Session, *, keyword: str | None, group_id: uuid.UUID | None, page: int, page_size: int
+) -> tuple[list[tuple[Company, int]], int]:
+    """Danh sách công ty cho khách, kèm số tin đang tuyển của từng công ty.
+
+    Số tin lấy bằng subquery tương quan ngay trong câu SELECT chính, không lặp
+    `db.query` cho từng công ty — 20 công ty một trang mà đếm rời là 20 lượt
+    truy vấn thừa (N+1).
+    """
+    open_job_count = (
+        select(func.count(Job.id))
+        .where(
+            Job.company_id == Company.id,
+            Job.status == JobStatus.PUBLISHED,
+            Job.deleted_at.is_(None),
+            Job.deadline > func.now(),
+        )
+        .correlate(Company)
+        .scalar_subquery()
+    )
+
+    stmt = select(Company, open_job_count.label("open_job_count")).where(
+        Company.deleted_at.is_(None),
+        # Chỉ công ty đã duyệt mới hiện ra ngoài — hồ sơ chờ duyệt hay bị từ
+        # chối không phải thứ để khách nhìn thấy.
+        Company.status == CompanyStatus.APPROVED,
+    )
+    if keyword:
+        pattern = f"%{keyword.strip()}%"
+        stmt = stmt.where(Company.company_name.ilike(pattern) | Company.short_name.ilike(pattern))
+    if group_id is not None:
+        stmt = stmt.where(Company.category_group_id == group_id)
+
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = db.execute(
+        # Công ty đang tuyển nhiều lên trước: người tìm việc vào đây để tìm chỗ
+        # nộp hồ sơ, công ty không có tin nào thì đứng đầu cũng vô ích.
+        stmt.order_by(open_job_count.desc(), Company.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    return [(row[0], row[1]) for row in rows], total
+
+
+def get_public_company_by_slug(db: Session, slug: str) -> Company:
+    company = db.scalar(
+        select(Company)
+        .where(
+            Company.slug == slug,
+            Company.deleted_at.is_(None),
+            Company.status == CompanyStatus.APPROVED,
+        )
+        .options(selectinload(Company.addresses))
+    )
+    if company is None:
+        raise NotFoundError("COMPANY_NOT_FOUND", "Không tìm thấy công ty này.")
+    return company
 
 
 def _apply_company_filters(

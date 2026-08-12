@@ -9,7 +9,7 @@ Toàn bộ bất biến ở DESIGN mục 4.3 được ép ở tầng này chứ 
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, func, select, update
+from sqlalchemy import Select, func, nulls_last, select, update
 from sqlalchemy.orm import Session, selectinload
 from starlette import status as http_status
 
@@ -20,9 +20,25 @@ from app.db.models.enums import CompanyStatus, JobStatus, SalaryType
 from app.db.models.job import Job, JobLocation
 from app.db.models.user import User
 from app.schemas.job import JobCreateIn, JobLocationIn, JobUpdateIn
+from app.schemas.public import JobSort, PublicJobFilters
 from app.utils.slug import unique_slug
 
 SLUG_SUFFIX_LENGTH = 6
+
+NEWEST_FIRST = (Job.created_at.desc(),)
+
+# Hai đầu mút "có ý nghĩa" của khoảng lương. Tin chỉ khai một phía (FROM/UP_TO)
+# thì con số duy nhất đó đóng cả hai vai, nhờ vậy bộ lọc lương không bỏ sót.
+_SALARY_CEILING = func.coalesce(Job.salary_max, Job.salary_min)
+_SALARY_FLOOR = func.coalesce(Job.salary_min, Job.salary_max)
+
+PUBLIC_SORTS: dict[JobSort, tuple] = {
+    JobSort.NEWEST: NEWEST_FIRST,
+    # Tin "thoả thuận" không có số nên đẩy xuống cuối thay vì để Postgres tự
+    # xếp NULL lên đầu khi sắp giảm dần.
+    JobSort.SALARY_DESC: (nulls_last(_SALARY_CEILING.desc()), Job.created_at.desc()),
+    JobSort.DEADLINE: (Job.deadline.asc(), Job.created_at.desc()),
+}
 
 # Nhà tuyển dụng được đi những đường nào. Bảng này là bản dịch trực tiếp của
 # sơ đồ vòng đời trong DESIGN mục 4.3 — sửa luật thì sửa ở đúng một chỗ.
@@ -267,6 +283,105 @@ def take_down_published_jobs(db: Session, company: Company, reason: str) -> int:
     return result.rowcount
 
 
+# ─────────────────────────── Trang công khai ───────────────────────────
+
+
+def list_public_jobs(db: Session, filters: PublicJobFilters) -> tuple[list[Job], int]:
+    stmt = _visible_to_public().options(selectinload(Job.company))
+
+    if filters.q:
+        stmt = stmt.where(Job.title.ilike(f"%{filters.q.strip()}%"))
+    if filters.category_id is not None:
+        stmt = stmt.where(Job.category_id == filters.category_id)
+    if filters.group_id is not None:
+        # Lọc theo nhóm ngành = lọc theo mọi ngành nghề con của nhóm đó.
+        stmt = stmt.where(
+            Job.category_id.in_(
+                select(Category.id).where(Category.group_id == filters.group_id)
+            )
+        )
+    if filters.city_id is not None:
+        # EXISTS thay vì JOIN: một tin có nhiều địa điểm, join sẽ nhân bản dòng
+        # và làm sai cả tổng số lẫn phân trang.
+        stmt = stmt.where(Job.locations.any(JobLocation.city_id == filters.city_id))
+    if filters.job_type is not None:
+        stmt = stmt.where(Job.job_type == filters.job_type)
+    if filters.experience_level is not None:
+        stmt = stmt.where(Job.experience_level == filters.experience_level)
+    if filters.is_hot is not None:
+        stmt = stmt.where(Job.is_hot.is_(filters.is_hot))
+
+    # Lọc lương: so với đầu mút có ý nghĩa của khoảng lương trong tin. Tin
+    # "thoả thuận" có cả hai cột NULL nên tự động rơi ra ngoài — đúng ý, vì
+    # không có cách nào biết nó thoả mãn con số người dùng nhập hay không.
+    if filters.salary_min is not None:
+        stmt = stmt.where(_SALARY_CEILING >= filters.salary_min)
+    if filters.salary_max is not None:
+        stmt = stmt.where(_SALARY_FLOOR <= filters.salary_max)
+
+    return _paginate(
+        db,
+        stmt,
+        page=filters.page,
+        page_size=filters.page_size,
+        order_by=PUBLIC_SORTS[filters.sort],
+    )
+
+
+def get_public_job_by_slug(db: Session, slug: str) -> Job:
+    """Chi tiết tin cho khách. Đếm luôn một lượt xem.
+
+    Tăng `view_count` bằng UPDATE nguyên tử chứ không đọc-cộng-ghi: hai người
+    mở cùng lúc thì đọc-cộng-ghi sẽ mất một lượt.
+    """
+    job = db.scalar(
+        _visible_to_public()
+        .where(Job.slug == slug)
+        .options(selectinload(Job.locations), selectinload(Job.company))
+    )
+    if job is None:
+        raise NotFoundError(
+            "JOB_NOT_FOUND",
+            "Tin tuyển dụng này không còn tồn tại hoặc đã hết hạn nhận hồ sơ.",
+        )
+
+    db.execute(update(Job).where(Job.id == job.id).values(view_count=Job.view_count + 1))
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def list_open_jobs_of_company(db: Session, company_id: uuid.UUID, limit: int) -> list[Job]:
+    """Tin đang tuyển của một công ty, dùng cho trang công ty."""
+    return list(
+        db.scalars(
+            _visible_to_public()
+            .where(Job.company_id == company_id)
+            .options(selectinload(Job.locations), selectinload(Job.company))
+            .order_by(*NEWEST_FIRST)
+            .limit(limit)
+        ).all()
+    )
+
+
+def _visible_to_public() -> Select:
+    """Điều kiện để một tin được phép xuất hiện với khách (DESIGN mục 4.3).
+
+    Điều kiện về công ty là lớp phòng thủ thứ hai: dù vì lý do nào đó còn sót
+    tin `PUBLISHED` thuộc công ty chưa/không được duyệt, nó vẫn không lọt ra.
+    """
+    return (
+        _active_jobs()
+        .join(Company, Company.id == Job.company_id)
+        .where(
+            Job.status == JobStatus.PUBLISHED,
+            Job.deadline > func.now(),
+            Company.status == CompanyStatus.APPROVED,
+            Company.deleted_at.is_(None),
+        )
+    )
+
+
 # ─────────────────────────── Hàm dùng chung ───────────────────────────
 
 
@@ -283,10 +398,13 @@ def _apply_job_filters(stmt: Select, job_status: JobStatus | None, keyword: str 
     return stmt
 
 
-def _paginate(db: Session, stmt: Select, *, page: int, page_size: int) -> tuple[list[Job], int]:
+def _paginate(
+    db: Session, stmt: Select, *, page: int, page_size: int, order_by: tuple = NEWEST_FIRST
+) -> tuple[list[Job], int]:
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(
-        stmt.order_by(Job.created_at.desc())
+        stmt.order_by(*order_by)
+        # Nạp địa điểm bằng 1 query phụ thay vì N query khi serialize.
         .options(selectinload(Job.locations))
         .offset((page - 1) * page_size)
         .limit(page_size)
