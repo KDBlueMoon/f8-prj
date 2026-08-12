@@ -1,24 +1,7 @@
-import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { AppHeader } from '@/components/layout/AppHeader'
+import { PageShell } from '@/components/layout/PageShell'
+import { CompanyStatusBadge } from '@/components/ui/Badge'
 import { useAuthStore } from '@/stores/authStore'
-
-/**
- * Các trang tạm của P1: chỉ đủ để chứng minh phân quyền hoạt động.
- * Nội dung thật sẽ thay dần từ P2 trở đi.
- */
-
-function PageShell({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-100">
-      <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="mb-4 text-xl font-bold text-slate-900">{title}</h1>
-        {children}
-      </main>
-    </div>
-  )
-}
 
 export function CandidateProfilePage() {
   const user = useAuthStore((state) => state.user)
@@ -50,18 +33,20 @@ export function EmployerDashboardPage() {
   const company = useAuthStore((state) => state.company)
 
   return (
-    <PageShell title="Tổng quan nhà tuyển dụng">
+    <PageShell
+      title="Tổng quan nhà tuyển dụng"
+      subtitle={company?.company_name}
+      actions={company && <CompanyStatusBadge status={company.status} />}
+    >
       {company?.status === 'PENDING' && (
-        <div className="mb-5 flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
-          <span aria-hidden className="text-xl">
-            ⏳
-          </span>
-          <div className="text-sm">
-            <p className="font-semibold text-amber-900">Hồ sơ công ty đang chờ duyệt</p>
-            <p className="mt-0.5 text-amber-800">
-              Bạn chưa thể đăng tin tuyển dụng cho tới khi quản trị viên duyệt hồ sơ.
-            </p>
-          </div>
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+          <p className="font-semibold text-amber-900">Hồ sơ công ty đang chờ duyệt</p>
+          <p className="mt-0.5 text-amber-800">
+            Bạn chưa thể đăng tin tuyển dụng cho tới khi quản trị viên duyệt hồ sơ.{' '}
+            <Link to="/ntd/cong-ty" className="font-semibold underline">
+              Xem hồ sơ công ty
+            </Link>
+          </p>
         </div>
       )}
 
@@ -69,27 +54,17 @@ export function EmployerDashboardPage() {
         <div className="mb-5 rounded-lg border border-red-300 bg-red-50 p-4 text-sm">
           <p className="font-semibold text-red-900">Hồ sơ công ty bị từ chối</p>
           <p className="mt-0.5 text-red-800">{company.rejected_reason}</p>
+          <Link to="/ntd/cong-ty" className="mt-2 inline-block font-semibold text-red-900 underline">
+            Sửa hồ sơ và gửi duyệt lại
+          </Link>
         </div>
       )}
 
-      <div className="max-w-md rounded-xl border border-slate-200 bg-white p-5 text-sm">
-        <p className="font-semibold text-slate-800">{company?.company_name}</p>
-        <p className="mt-1 text-slate-500">Trạng thái: {company?.status}</p>
-        <p className="text-slate-500">Xác thực: {company?.verification_tier}</p>
-      </div>
-      <p className="mt-4 text-sm text-slate-500">
-        Quản lý tin tuyển dụng sẽ có ở phase P3.
-      </p>
-    </PageShell>
-  )
-}
-
-export function AdminUsersPage() {
-  return (
-    <PageShell title="Quản lý người dùng">
-      <p className="text-sm text-slate-500">
-        Danh sách người dùng và duyệt công ty sẽ có ở phase P2.
-      </p>
+      {company?.status === 'APPROVED' && (
+        <div className="mb-5 rounded-lg border border-green-200 bg-brand-light p-4 text-sm text-brand-dark">
+          Hồ sơ công ty đã được duyệt. Chức năng đăng tin tuyển dụng sẽ có ở phase P3.
+        </div>
+      )}
     </PageShell>
   )
 }

@@ -1,13 +1,26 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { logout } from '@/features/auth/api'
 import { useAuthStore } from '@/stores/authStore'
+import type { UserRole } from '@/types/auth'
 
 const ROLE_LABELS = {
   CANDIDATE: 'Ứng viên',
   EMPLOYER: 'Nhà tuyển dụng',
   ADMIN: 'Quản trị viên',
 } as const
+
+const NAV_BY_ROLE: Record<UserRole, Array<{ to: string; label: string }>> = {
+  CANDIDATE: [{ to: '/ung-vien/ho-so', label: 'Hồ sơ' }],
+  EMPLOYER: [
+    { to: '/ntd/tong-quan', label: 'Tổng quan' },
+    { to: '/ntd/cong-ty', label: 'Hồ sơ công ty' },
+  ],
+  ADMIN: [
+    { to: '/admin/cong-ty', label: 'Công ty' },
+    { to: '/admin/nguoi-dung', label: 'Người dùng' },
+  ],
+}
 
 export function AppHeader() {
   const user = useAuthStore((state) => state.user)
@@ -25,6 +38,22 @@ export function AppHeader() {
         <Link to="/" className="text-2xl font-black text-brand">
           Top<span className="text-slate-800">CV</span>
         </Link>
+
+        {user && (
+          <nav className="hidden gap-5 text-sm font-medium md:flex">
+            {NAV_BY_ROLE[user.role].map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  isActive ? 'text-brand' : 'text-slate-600 hover:text-brand'
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
 
         <div className="ml-auto flex items-center gap-3">
           {status === 'authenticated' && user ? (

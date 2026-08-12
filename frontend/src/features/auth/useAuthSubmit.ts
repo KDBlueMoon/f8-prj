@@ -9,7 +9,7 @@ import type { LoginResponse } from '@/types/auth'
 export const HOME_BY_ROLE = {
   CANDIDATE: '/ung-vien/ho-so',
   EMPLOYER: '/ntd/tong-quan',
-  ADMIN: '/admin/nguoi-dung',
+  ADMIN: '/admin/cong-ty',
 } as const
 
 interface UseAuthSubmitResult<TValues extends FieldValues> {

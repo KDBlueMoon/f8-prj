@@ -6,9 +6,11 @@ import LoginPage from '@/features/auth/LoginPage'
 import RegisterCandidatePage from '@/features/auth/RegisterCandidatePage'
 import RegisterEmployerPage from '@/features/auth/RegisterEmployerPage'
 import { useSessionBootstrap } from '@/features/auth/useSessionBootstrap'
+import AdminCompaniesPage from '@/features/admin/AdminCompaniesPage'
+import AdminUsersPage from '@/features/admin/AdminUsersPage'
+import CompanyProfilePage from '@/features/employer/CompanyProfilePage'
 import HomePage from '@/pages/HomePage'
 import {
-  AdminUsersPage,
   CandidateProfilePage,
   EmployerDashboardPage,
   ForbiddenPage,
@@ -74,9 +76,11 @@ function AppRoutes() {
 
       <Route element={<ProtectedRoute allow={['EMPLOYER']} />}>
         <Route path="/ntd/tong-quan" element={<EmployerDashboardPage />} />
+        <Route path="/ntd/cong-ty" element={<CompanyProfilePage />} />
       </Route>
 
       <Route element={<ProtectedRoute allow={['ADMIN']} />}>
+        <Route path="/admin/cong-ty" element={<AdminCompaniesPage />} />
         <Route path="/admin/nguoi-dung" element={<AdminUsersPage />} />
       </Route>
 
