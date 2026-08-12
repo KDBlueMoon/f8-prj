@@ -32,7 +32,11 @@ class Settings(BaseSettings):
 
     # VietQR — dùng từ P2
     VIETQR_BASE_URL: str = "https://api.vietqr.io/v2"
-    VIETQR_TIMEOUT_SECONDS: int = 5
+    # 10 giây, không phải 5. Đo thực tế: VietQR trả kết quả tìm thấy trong
+    # ~0,2 giây nhưng mất ~5,3 giây mới trả lời "mã số thuế không tồn tại".
+    # Để 5 giây thì mọi mã sai đều bị báo nhầm thành "dịch vụ không phản hồi",
+    # người dùng không biết là mình gõ sai mã.
+    VIETQR_TIMEOUT_SECONDS: int = 10
 
     @model_validator(mode="after")
     def validate_secret_key(self) -> "Settings":
