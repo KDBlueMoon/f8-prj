@@ -25,6 +25,9 @@ dist/
 # ─── IDE / OS ───
 .vscode/
 .idea/
+# Ghi chú phiên làm việc của trợ lý AI — không phải tài liệu dự án.
+# Mọi quyết định thiết kế đã nằm trong docs/DESIGN.md.
+.claude/
 .DS_Store
 Thumbs.db
 
