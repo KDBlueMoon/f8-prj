@@ -244,7 +244,8 @@ Lưu ý `group-6 "Lao động phổ thông"` trong data mẫu **không có** m�
 | `description_html` | text | HTML đã sanitize |
 | `status` | enum(`PENDING`,`APPROVED`,`REJECTED`) DEFAULT `PENDING` | admin duyệt |
 | `rejected_reason` | text | bắt buộc khi `REJECTED` |
-| `verification_tier` | enum(`UNVERIFIED`,`VERIFIED`) DEFAULT `UNVERIFIED` | badge "Đã xác thực" |
+| `verification_tier` | enum(`UNVERIFIED`,`VERIFIED`) DEFAULT `UNVERIFIED` | badge "Đã xác thực", chỉ admin gắn được và chỉ cho công ty đã `APPROVED` |
+| `tax_code_verified_at` | timestamptz NULL | thời điểm tên công ty được đối chiếu khớp với VietQR. NULL = chưa đối chiếu được (VietQR không phản hồi lúc đăng ký) → admin cần soi kỹ hơn |
 | `slug` | text UNIQUE NOT NULL | sinh từ `short_name`/`company_name` |
 
 #### `company_members`
@@ -421,10 +422,21 @@ Backend gọi tiếp `GET https://api.vietqr.io/v2/business/{taxCode}`.
 
 | Tình huống | Xử lý |
 |---|---|
-| Timeout (đặt 5s) hoặc VietQR chết | Trả `503 TAX_LOOKUP_UNAVAILABLE` → UI hiện "Không tra cứu được, vui lòng nhập tay". **Không chặn đăng ký.** |
-| `code != "00"` (không tìm thấy MST) | Trả `404 TAX_CODE_NOT_FOUND` |
-| Bị 429 từ VietQR | Cache kết quả theo `tax_code` (TTL 24h) + rate limit phía mình 10 lần/phút/IP |
-| MST đã có công ty đăng ký | Trả `409 TAX_CODE_TAKEN` ngay ở bước tra cứu, khỏi cho điền tiếp cả form |
+| Timeout (**10s**, xem ghi chú dưới) hoặc VietQR chết | Trả `503 TAX_LOOKUP_UNAVAILABLE` → UI hiện "Không tra cứu được, vui lòng nhập tay". **Không chặn đăng ký.** |
+| `code != "00"` (không tìm thấy MST) | Trả `404 TAX_CODE_NOT_FOUND`, cache 30 phút |
+| Bị 429 hoặc 5xx từ VietQR | Trả `503` của mình, không lộ mã lỗi gốc. Cache kết quả thành công theo `tax_code` (TTL 24h) + rate limit phía mình 10 lần/phút/IP |
+| MST đã có công ty đăng ký | Trả `409 TAX_CODE_TAKEN` khi đăng ký |
+
+> ⚠️ **Timeout phải là 10s, không phải 5s như dự kiến ban đầu.** Đo thực tế khi
+> tích hợp: VietQR trả kết quả **tìm thấy** trong ~0,2 giây nhưng mất **~5,3 giây**
+> mới trả lời **không tìm thấy**. Để 5 giây thì mọi mã số thuế sai đều bị báo nhầm
+> thành "dịch vụ không phản hồi" — người dùng không biết là mình gõ sai mã.
+> Cũng vì độ trễ này mà kết quả "không tìm thấy" phải được cache.
+
+> ⚠️ **Rate limit phải cấu hình `key_style="endpoint"`.** Mặc định của `slowapi` là
+> `"url"` — đếm theo URL cụ thể, nên với route có tham số như
+> `/companies/lookup-tax-code/{tax_code}` thì mỗi mã số thuế là một bộ đếm riêng và
+> hạn mức không bao giờ chạm tới. Kẻ quét dữ liệu chỉ cần đổi tham số là vượt qua.
 
 **Không tin dữ liệu client gửi lên:** khi `POST /auth/register/employer`, backend **gọi lại VietQR lần nữa** để đối chiếu `company_name` — chặn việc user sửa DevTools rồi khai tên công ty khác với MST. Nếu VietQR đang chết thì cho qua nhưng đánh dấu `verification_tier = UNVERIFIED` để admin soi kỹ khi duyệt.
 
