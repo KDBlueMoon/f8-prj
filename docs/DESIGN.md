@@ -321,6 +321,18 @@ NTD soạn tin ──▶ DRAFT ──(bấm "Đăng tin")──▶ PUBLISHED ◀
 - Khi admin đổi công ty từ `APPROVED` → `REJECTED`: toàn bộ job `PUBLISHED` của công ty đó tự chuyển `TAKEN_DOWN` (chạy trong cùng transaction).
 - `TAKEN_DOWN` chỉ admin đặt được; NTD không tự gỡ trạng thái này, phải sửa tin rồi đăng lại.
 
+> **Chốt khi triển khai P3 — "sửa tin rồi đăng lại" nghĩa là gì.** Endpoint đổi
+> trạng thái **không** nhận `TAKEN_DOWN → PUBLISHED`. Đường duy nhất: NTD `PATCH`
+> nội dung tin, lúc đó tin tự về `DRAFT` và xoá `takedown_reason`, rồi mới đăng
+> lại được. Nếu cho bấm đăng lại ngay mà không sửa gì thì quyết định gỡ tin của
+> admin vô nghĩa — NTD bấm một cái là tin lên lại. Cách này dùng đúng cơ chế đã
+> có (giống hồ sơ công ty `REJECTED` → `PENDING` khi sửa), không cần thêm cột
+> `taken_down_at` để so mốc thời gian.
+>
+> **Gửi `status=PUBLISHED` khi công ty chưa duyệt thì báo lỗi 403, không âm thầm
+> hạ xuống `DRAFT`.** Lưu lặng lẽ thành nháp là NTD tưởng tin đã lên, tới lúc
+> không có ứng viên nào mới phát hiện.
+
 ---
 
 ## 5. API contract
@@ -525,6 +537,21 @@ Dùng **TipTap** (headless, dựa trên ProseMirror). Toolbar giới hạn: **bo
 **Chuỗi bảo vệ XSS (bắt buộc cả 2 đầu):**
 1. Backend: `bleach.clean()` với whitelist tag/attr chặt trước khi lưu DB. **Đây là lớp bảo vệ chính.**
 2. Frontend: `DOMPurify.sanitize()` trước khi `dangerouslySetInnerHTML` trong `<SafeHtml>`.
+
+**Whitelist thống nhất hai đầu** (`backend/app/utils/sanitize.py` ↔ `frontend/src/components/ui/SafeHtml.tsx`):
+`p`, `br`, `strong`, `b`, `em`, `i`, `u`, `h3`, `ul`, `ol`, `li`, `a`. Thuộc tính duy nhất: `href`, `title` trên `<a>`. Giao thức: `http`, `https`, `mailto`.
+`b`/`i` không có trên toolbar nhưng vẫn cho qua vì nội dung dán từ Word/Google Docs hay dùng chúng.
+
+> **Ghi nhận khi triển khai P3 — `bleach` giữ lại chữ bên trong `<script>`/`<style>`.**
+> `bleach.clean(strip=True)` gỡ được thẻ nhưng **không** bỏ phần ruột, nên dán một
+> đoạn từ Word (thường kèm khối `<style>` dài) sẽ đổ nguyên đống CSS vào giữa bài
+> viết. Backend chạy thêm một lượt xoá trọn khối `<script>`/`<style>` **trước khi**
+> gọi bleach. Đây chỉ là dọn cho sạch mắt — chốt chặn an toàn vẫn là bleach chạy
+> ngay sau, nên bước dọn này không cần chống được mọi mẹo né tránh.
+
+> **Editor phải tắt đúng những gì backend sẽ gỡ.** StarterKit của TipTap bật sẵn
+> `strike`, `code`, `codeBlock`, `blockquote`, `horizontalRule` — đều nằm ngoài
+> whitelist. Không tắt thì NTD định dạng xong, bấm lưu mới thấy mất trắng.
 
 ---
 
