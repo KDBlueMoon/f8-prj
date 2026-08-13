@@ -10,7 +10,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./pgdata:/var/lib/postgresql/data
     healthcheck:
       # backend chỉ khởi động sau khi Postgres thực sự nhận kết nối,
       # tránh lỗi "connection refused" lúc chạy migration.
@@ -21,30 +21,20 @@ services:
 
   backend:
     build: ./backend
-    container_name: f8_backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # image: public.ecr.aws/y0g8v4d3/fls-image:latest
+    working_dir: /app/api
     environment:
-      APP_ENV: ${APP_ENV}
-      SECRET_KEY: ${SECRET_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION}
-      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
-      VIETQR_BASE_URL: ${VIETQR_BASE_URL}
-      VIETQR_TIMEOUT_SECONDS: ${VIETQR_TIMEOUT_SECONDS}
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - PYTHONPATH=/app/api
+    env_file:
+      - .env
     volumes:
-      - ./backend:/app
-    command: >
-      sh -c "alembic upgrade head &&
-             python -m seeds.run &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      - ./backend:/app/api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    entrypoint: [ "poetry", "run" ]
+    command: [ "fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000" ]
 
   frontend:
     build: ./frontend

@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.integrations import vietqr
 from app.schemas.common import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, build_page_meta
@@ -27,7 +26,7 @@ MAX_SLUG_LENGTH = 255
 
 
 @router.get("/lookup-tax-code/{tax_code}", response_model=TaxCodeLookupOut)
-@limiter.limit("10/minute")
+
 def lookup_tax_code(
     request: Request,
     tax_code: str = Path(min_length=10, max_length=14),

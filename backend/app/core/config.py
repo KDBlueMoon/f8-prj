@@ -11,7 +11,13 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
     SECRET_KEY: str = ""
-    DATABASE_URL: str
+    # DATABASE_URL: str
+
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    POSTGRES_DB: str = ""
+    POSTGRES_PORT: int = 5432
+    POSTGRES_HOST: str =  ""
 
     # JWT
     JWT_ALGORITHM: str = "HS256"

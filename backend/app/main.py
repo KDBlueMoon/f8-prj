@@ -1,13 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi.errors import RateLimitExceeded
 from starlette import status
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import AppError
-from app.core.rate_limit import limiter
 
 app = FastAPI(
     title="f8 TopCV Clone API",
@@ -18,7 +16,6 @@ app = FastAPI(
     openapi_url=None if settings.is_production else "/openapi.json",
 )
 
-app.state.limiter = limiter
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,20 +33,6 @@ def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": {"code": exc.code, "message": exc.message}},
-    )
-
-
-@app.exception_handler(RateLimitExceeded)
-def handle_rate_limit(_: Request, __: RateLimitExceeded) -> JSONResponse:
-    """Lỗi vượt hạn mức cũng trả về đúng format lỗi chung của hệ thống."""
-    return JSONResponse(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        content={
-            "detail": {
-                "code": "TOO_MANY_REQUESTS",
-                "message": "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.",
-            }
-        },
     )
 
 

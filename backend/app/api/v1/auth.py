@@ -4,7 +4,6 @@ from starlette import status
 
 from app.core.config import settings
 from app.core.deps import get_current_user
-from app.core.rate_limit import limiter
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.auth import (
@@ -54,7 +53,7 @@ def _login_response(db: Session, user: User, response: Response) -> LoginRespons
 
 
 @router.post("/register/candidate", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/hour")
+
 def register_candidate(
     request: Request,
     payload: RegisterCandidateRequest,
@@ -73,7 +72,6 @@ def register_candidate(
 
 
 @router.post("/register/employer", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("3/hour")
 def register_employer(
     request: Request,
     payload: RegisterEmployerRequest,
@@ -97,7 +95,7 @@ def register_employer(
 
 
 @router.post("/login", response_model=LoginResponse)
-@limiter.limit("5/minute")
+
 def login(
     request: Request,
     payload: LoginRequest,
