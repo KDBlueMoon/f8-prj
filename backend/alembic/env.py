@@ -3,12 +3,12 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.core.config import settings
-from app.db.models import Base  # noqa: F401 — import để đăng ký toàn bộ model
+from config.settings import settings
+from models.all import Base  # noqa: F401 — import để đăng ký toàn bộ model
 
 config = context.config
 
-DATABASE_URL = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:5432/{settings.POSTGRES_DB}"
+DATABASE_URL = settings.database_url
 
 # Lấy URL từ biến môi trường, không đọc từ alembic.ini (tránh lộ credential).
 config.set_main_option("sqlalchemy.url", DATABASE_URL)

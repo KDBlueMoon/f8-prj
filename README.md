@@ -1,17 +1,18 @@
 # f8-prj — Clone TopCV
 
-Nền tảng tuyển dụng: ứng viên tìm & ứng tuyển việc làm, nhà tuyển dụng đăng tin,
-admin duyệt hồ sơ công ty.
+API nền tảng tuyển dụng: ứng viên tìm & ứng tuyển việc làm, nhà tuyển dụng đăng
+tin. Hợp đồng API nằm ở [`openapi.yaml`](openapi.yaml) — đó là bản thiết kế
+gốc, code viết theo đúng file đó (kèm 2 bổ sung nhỏ để luồng chạy được trọn
+vẹn: `POST /auth/register` cho Candidate, và field `password` trong
+`CompanyRegisterRequest`).
 
-- **Frontend:** Vite + React 19 + TypeScript + TailwindCSS 4
-- **Backend:** FastAPI (Python 3.12) + PostgreSQL 16 + SQLAlchemy 2 + Alembic
-- **Thiết kế chi tiết:** [`docs/DESIGN.md`](docs/DESIGN.md) · **Mockup UI:** [`docs/mockups/index.html`](docs/mockups/index.html)
+- **Backend:** FastAPI (Python) + PostgreSQL 16 + SQLAlchemy 2 + Alembic
 
 ---
 
 ## Chạy dự án
 
-Yêu cầu: **Docker Desktop**. Không cần cài Python hay Node trên máy.
+Yêu cầu: **Docker Desktop**. Không cần cài Python trên máy.
 
 ```bash
 # 1. Tạo file cấu hình từ mẫu
@@ -21,20 +22,18 @@ cp .env.example .env
 #    POSTGRES_PASSWORD=<mật khẩu tự chọn>
 #    SECRET_KEY=<sinh bằng: openssl rand -hex 32>
 
-# 3. Khởi động cả 3 service
+# 3. Khởi động các service
 docker compose up -d
 ```
 
 | Địa chỉ | Nội dung |
 |---|---|
-| http://localhost:5173 | Frontend |
-| http://localhost:5173/dang-ky | Đăng ký ứng viên |
-| http://localhost:5173/dang-ky/nha-tuyen-dung | Đăng ký nhà tuyển dụng |
 | http://localhost:8000/api/v1/health | Health check |
 | http://localhost:8000/docs | Swagger UI (chỉ khi `APP_ENV != production`) |
 
-Backend tự chạy `alembic upgrade head` rồi seed danh mục mỗi lần khởi động.
-Seed idempotent nên restart nhiều lần không sinh dữ liệu trùng.
+Lệnh khởi động của container backend (`docker-compose.yml`) tự chạy
+`alembic upgrade head` rồi `python -m seeds.run` (seed danh mục ngành nghề,
+idempotent) trước khi bật server.
 
 > ⚠️ **Không commit `.env`.** File này đã nằm trong `.gitignore`. Chỉ commit
 > `.env.example` với giá trị rỗng.
@@ -45,39 +44,19 @@ Seed idempotent nên restart nhiều lần không sinh dữ liệu trùng.
 
 ```bash
 docker compose logs -f backend        # xem log backend
-docker compose down                   # dừng (giữ dữ liệu DB)
-docker compose down -v                # dừng và XOÁ SẠCH dữ liệu DB
+docker compose down                   # dừng
+# Data DB nằm ở bind mount ./pgdata (không phải named volume) — muốn xoá sạch
+# để làm lại từ đầu thì rm -rf ./pgdata sau khi đã docker compose down.
 
-docker exec f8_backend pytest -q      # chạy test backend
-docker exec f8_frontend npm run build # type-check + build frontend
-
-# Tạo tài khoản quản trị viên (nhập mật khẩu khi được hỏi, không hiện ra màn hình)
-docker exec -it f8_backend python -m seeds.create_admin --email admin@congty.vn
+# Tạo tài khoản test không qua HTTP (không có endpoint admin nào cả)
+docker exec -it f8-prj-backend-1 poetry run python -m seeds.create_user --email a@b.com --role admin
 
 # Migration
-docker exec f8_backend alembic revision --autogenerate -m "mô tả"
-docker exec f8_backend alembic upgrade head
-docker exec f8_backend alembic check  # báo lỗi nếu model lệch migration
+docker exec f8-prj-backend-1 poetry run alembic revision --autogenerate -m "mô tả"
+docker exec f8-prj-backend-1 poetry run alembic upgrade head
+docker exec f8-prj-backend-1 poetry run alembic check  # báo lỗi nếu model lệch migration
 ```
 
-Sau khi sửa `frontend/package.json`, phải làm mới volume `node_modules`:
-
-```bash
-docker compose build frontend
-docker compose up -d --force-recreate --renew-anon-volumes frontend
-```
-
----
-
-## Tiến độ
-
-| Phase | Nội dung | Trạng thái |
-|---|---|---|
-| P0 | Docker Compose, schema DB, migration, seed 34 tỉnh/thành + ngành nghề | ✅ Xong |
-| P1 | Auth ứng viên + nhà tuyển dụng, RBAC, guard frontend | ✅ Xong |
-| P2 | Tích hợp VietQR, hồ sơ công ty, admin duyệt | ✅ Xong |
-| P3 | CRUD tin tuyển dụng + rich text | ✅ Xong |
-| P4 | Trang công khai: danh sách & chi tiết việc làm | ✅ Xong |
-| P5 | Upload CV lên S3 + ứng tuyển | ⏳ |
-| P6 | Nhà tuyển dụng quản lý ứng viên | ⏳ |
-| P7 | Job đã lưu, cron hết hạn, SEO | ⏳ |
+Chưa có bộ test tự động — bộ pytest cũ được viết cho schema/endpoint đời
+trước, không còn khớp với API hiện tại nên đã xoá cùng phần backend cũ thay vì
+cố sửa lại cho khớp một hợp đồng hoàn toàn khác.

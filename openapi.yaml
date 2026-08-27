@@ -1,0 +1,651 @@
+openapi: 3.0.3
+info:
+  title: TopCV Clone API - Full Specification
+  description: Tài liệu thiết kế API cho hệ thống tuyển dụng (TopCV clone). Hỗ trợ các luồng cho Ứng viên (Candidate), Nhà tuyển dụng (Employer), và hiển thị public.
+  version: 1.1.0
+servers:
+  - url: https://api.topcv-clone.com/v1
+    description: Production Server
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server
+
+tags:
+  - name: Auth
+    description: Đăng nhập / Đăng xuất cho tất cả user
+  - name: Employer
+    description: Dành cho Nhà tuyển dụng (Tạo tin, Quản lý CV ứng tuyển)
+  - name: Candidate
+    description: Dành cho Ứng viên (Apply job, Tạo CV)
+  - name: Public
+    description: API không cần đăng nhập (Xem danh sách Job, Danh sách Công ty, Job detail, Category)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ==========================================
+    # SCHEMAS: CORE MODELS (Từ data.json)
+    # ==========================================
+    Address:
+      type: object
+      properties:
+        city_id:
+          type: integer
+          example: 1
+        city_name:
+          type: string
+          example: "Hà Nội"
+        address_detail:
+          type: string
+          example: "Tầng 3, Tòa FS GoldSeason, 47 Nguyễn Tuân, Thanh Xuân"
+
+    Salary:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [RANGE, AGREEMENT, UP_TO, MINIMUM]
+        min:
+          type: integer
+          example: 25000000
+        max:
+          type: integer
+          example: 40000000
+        currency:
+          type: string
+          example: "VND"
+        is_negotiable:
+          type: boolean
+          example: false
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "cat-1-1"
+        name:
+          type: string
+          example: "Sales Xuất nhập khẩu/Logistics"
+        slug:
+          type: string
+          example: "sales-xuat-nhap-khau-logistics"
+
+    CategoryGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "group-1"
+        group_name:
+          type: string
+          example: "Kinh doanh / Bán hàng"
+        group_slug:
+          type: string
+          example: "kinh-doanh-ban-hang"
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "comp-001"
+        status:
+          type: string
+          enum: [APPROVED, PENDING, REJECTED]
+        verification_tier:
+          type: string
+          enum: [VERIFIED, UNVERIFIED]
+        tax_code:
+          type: string
+          example: "0108888888"
+        company_name:
+          type: string
+          example: "CÔNG TY CỔ PHẦN CÔNG NGHỆ TOPCV VIỆT NAM"
+        international_name:
+          type: string
+          example: "TOPCV VIETNAM TECHNOLOGY JOINT STOCK COMPANY"
+        short_name:
+          type: string
+          example: "TOPCV VIETNAM"
+        director:
+          type: string
+          example: "Thái Trí Hùng"
+        headquarters_address:
+          type: string
+          example: "Tầng 3, Tòa nhà FS - GoldSeason, 47 Nguyễn Tuân, Phường Thanh Xuân Trung, Quận Thanh Xuân, Thành phố Hà Nội, Việt Nam"
+        issued_date:
+          type: string
+          format: date
+          example: "2019-03-15"
+        email:
+          type: string
+          format: email
+          example: "contact@topcv.vn"
+        phone_number:
+          type: string
+          example: "02466805588"
+        website:
+          type: string
+          example: "https://www.topcv.vn"
+        logo_url:
+          type: string
+        company_size:
+          type: string
+          example: "500-1000 nhân viên"
+        category:
+          type: string
+        address_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+        description_html:
+          type: string
+
+    JobDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "job-001"
+        company:
+          $ref: '#/components/schemas/Company'
+        title:
+          type: string
+          example: "Senior Frontend Developer (ReactJS / Next.js)"
+        slug:
+          type: string
+        category:
+          type: string
+        specialty:
+          type: string
+        job_type:
+          type: string
+          enum: [FULL_TIME, PART_TIME, FREELANCE, INTERNSHIP]
+        experience_level:
+          type: string
+          example: "3-5 năm"
+        gender:
+          type: string
+          enum: [MALE, FEMALE, NOT_REQUIRED]
+        quantity:
+          type: integer
+          example: 3
+        salary:
+          $ref: '#/components/schemas/Salary'
+        work_location:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+        deadline:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [PUBLISHED, DRAFT, CLOSED]
+        is_hot:
+          type: boolean
+        description_html:
+          type: string
+        requirements_html:
+          type: string
+        benefits_html:
+          type: string
+
+    # ==========================================
+    # SCHEMAS: REQUESTS & RESPONSES
+    # ==========================================
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - full_name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        full_name:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            role:
+              type: string
+              enum: [EMPLOYER, CANDIDATE, ADMIN]
+
+    JobCreateRequest:
+      type: object
+      required:
+        - title
+        - category
+        - job_type
+        - deadline
+        - description_html
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+        specialty:
+          type: string
+        job_type:
+          type: string
+          enum: [FULL_TIME, PART_TIME, FREELANCE, INTERNSHIP]
+        experience_level:
+          type: string
+        gender:
+          type: string
+          enum: [MALE, FEMALE, NOT_REQUIRED]
+        quantity:
+          type: integer
+        salary:
+          $ref: '#/components/schemas/Salary'
+        work_location:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+        deadline:
+          type: string
+          format: date-time
+        is_hot:
+          type: boolean
+        description_html:
+          type: string
+        requirements_html:
+          type: string
+        benefits_html:
+          type: string
+
+    CompanyRegisterRequest:
+      type: object
+      required:
+        - tax_code
+        - company_name
+        - email
+        - phone_number
+        - password
+      properties:
+        tax_code:
+          type: string
+        company_name:
+          type: string
+        international_name:
+          type: string
+        short_name:
+          type: string
+        director:
+          type: string
+        headquarters_address:
+          type: string
+        email:
+          type: string
+        phone_number:
+          type: string
+        website:
+          type: string
+        password:
+          type: string
+          format: password
+          description: Dùng để đăng nhập sau khi đăng ký (tài khoản Employer gắn với công ty này).
+
+    CVCreationRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        summary:
+          type: string
+        education:
+          type: array
+          items:
+            type: object
+            properties:
+              school:
+                type: string
+              major:
+                type: string
+              start_date:
+                type: string
+              end_date:
+                type: string
+        experience:
+          type: array
+          items:
+            type: object
+        skills:
+          type: array
+          items:
+            type: string
+
+    ApplyJobRequest:
+      type: object
+      required:
+        - cv_id
+      properties:
+        cv_id:
+          type: string
+          description: ID của CV online hoặc CV đã upload
+        cover_letter:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: integer
+
+paths:
+  # ==========================================
+  # 1. Login / Logout
+  # ==========================================
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Đăng nhập hệ thống
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Sai thông tin đăng nhập
+
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Đăng ký tài khoản Candidate
+      description: Không có trong bản thiết kế gốc — bổ sung vì luồng apply job (mục 4) cần một cách để tạo tài khoản Candidate.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: Email đã được đăng ký
+
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Đăng xuất
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Đăng xuất thành công
+
+  # ==========================================
+  # 2. Tạo tin tuyển dụng (Employer)
+  # ==========================================
+  /employer/jobs:
+    post:
+      tags:
+        - Employer
+      summary: Tạo tin tuyển dụng mới
+      description: Dành cho Employer (Nhà tuyển dụng). Hỗ trợ format text qua các trường HTML.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobCreateRequest'
+      responses:
+        '201':
+          description: Tạo thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetail'
+        '403':
+          description: Không có quyền truy cập
+
+  # ==========================================
+  # 3. Danh sách jobs (Không cần login)
+  # ==========================================
+  /jobs:
+    get:
+      tags:
+        - Public
+      summary: Lấy danh sách việc làm
+      description: Tương đương trang chủ / trang tìm kiếm việc làm.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: category_slug
+          in: query
+          schema:
+            type: string
+        - name: city_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Danh sách Job có phân trang
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobDetail'
+                  total:
+                    type: integer
+
+  # ==========================================
+  # 4. Chi tiết 1 job & Apply (Candidate)
+  # ==========================================
+  /jobs/{slug}:
+    get:
+      tags:
+        - Public
+      summary: Xem chi tiết 1 job (Không cần login)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chi tiết Job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetail'
+        '404':
+          description: Không tìm thấy job
+
+  /jobs/{id}/apply:
+    post:
+      tags:
+        - Candidate
+      summary: Ứng tuyển việc làm
+      description: Ứng viên muốn apply -> Yêu cầu tạo tài khoản và login.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyJobRequest'
+      responses:
+        '200':
+          description: Apply thành công
+        '401':
+          description: Chưa đăng nhập
+
+  # ==========================================
+  # 5. Tạo CV online (Candidate)
+  # ==========================================
+  /candidate/cvs:
+    post:
+      tags:
+        - Candidate
+      summary: Tạo CV online
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CVCreationRequest'
+      responses:
+        '201':
+          description: Tạo CV thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cv_id:
+                    type: string
+                  pdf_url:
+                    type: string
+
+  # ==========================================
+  # 6. Danh sách công ty (Public) & Đăng ký (Employer)
+  # ==========================================
+  /companies:
+    get:
+      tags:
+        - Public
+      summary: Xem danh sách công ty (Không cần login)
+      description: Bất kỳ ai cũng có thể xem danh sách các công ty trên nền tảng
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: keyword
+          in: query
+          description: Tìm kiếm theo tên công ty
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách công ty
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Company'
+                  total:
+                    type: integer
+
+  /companies/register:
+    post:
+      tags:
+        - Employer
+      summary: Công ty / Nhà tuyển dụng đăng ký tài khoản
+      description: Yêu cầu đầy đủ thông tin mst (tax_code), tên, giám đốc, email...
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyRegisterRequest'
+      responses:
+        '201':
+          description: Đăng ký thành công
+
+  # ==========================================
+  # Data tĩnh (danh mục)
+  # ==========================================
+  /categories:
+    get:
+      tags:
+        - Public
+      summary: Lấy danh sách ngành nghề (Category Groups)
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryGroup'
